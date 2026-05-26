@@ -1,11 +1,11 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import {
   ChevronRight, Upload, FileText, Zap, CheckCircle, AlertCircle, Eye, Download,
   Plus, Filter, Clock, TrendingUp, Home, Settings, LogOut, Bell, User, Menu,
   Send, Copy, FileUp, AlertTriangle, CheckCheck, DollarSign, Package,
-  Layers, FileCheck, Loader,
+  Layers, FileCheck, Loader, X,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -34,6 +34,14 @@ interface ProcessingStage {
 interface UploadHistory {
   id: string; fileName: string; uploadDate: string; invoiceNo: string;
   amount: number; status: 'pending' | 'processed' | 'posted'; voucherNo?: string;
+}
+interface UploadedFile {
+  file: File;
+  name: string;
+  size: number;
+  type: string;
+  previewUrl: string | null;
+  uploadId: string | null;
 }
 
 // ==================== DATA ====================
@@ -358,71 +366,142 @@ const HomeScreen = ({
 );
 
 // ==================== UPLOAD ====================
-const UploadScreen = ({ onNavigate, selectedSample, onSelectSample }: {
-  onNavigate: (s: ScreenType) => void; selectedSample: string | null; onSelectSample: (s: string) => void;
+const UploadScreen = ({ onNavigate, uploadedFile, onFileSelected, onStartProcessing }: {
+  onNavigate: (s: ScreenType) => void;
+  uploadedFile: UploadedFile | null;
+  onFileSelected: (f: UploadedFile) => void;
+  onStartProcessing: (voucherType: string) => void;
 }) => {
   const [selectedVoucher, setSelectedVoucher] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [sizeError, setSizeError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const canProceed = selectedSample && selectedVoucher;
+  const ACCEPTED = ['application/pdf', 'image/png', 'image/jpeg', 'image/jpg'];
+  const MAX_MB = 50;
+
+  const processFile = useCallback((file: File) => {
+    setSizeError(null);
+    if (!ACCEPTED.includes(file.type)) {
+      setSizeError('Only PDF, PNG, and JPG files are supported.');
+      return;
+    }
+    if (file.size > MAX_MB * 1024 * 1024) {
+      setSizeError(`File exceeds ${MAX_MB} MB limit.`);
+      return;
+    }
+    const previewUrl = file.type.startsWith('image/') ? URL.createObjectURL(file) : null;
+    onFileSelected({ file, name: file.name, size: file.size, type: file.type, previewUrl, uploadId: null });
+  }, [onFileSelected]);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const file = e.dataTransfer.files[0];
+    if (file) processFile(file);
+  }, [processFile]);
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) processFile(file);
+    e.target.value = '';
+  };
+
+  const formatSize = (bytes: number) => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
+  const canProceed = uploadedFile && selectedVoucher;
+
+  const handleStart = () => {
+    if (!canProceed) return;
+    onStartProcessing(selectedVoucher!);
+    onNavigate('processing');
+  };
 
   return (
   <div className="max-w-2xl mx-auto space-y-5">
-    <SectionHeader label="Upload Document" sub="Drag and drop or select a file to begin OCR extraction" />
+    <SectionHeader label="Upload Document" sub="Drag and drop or browse a file to begin OCR extraction" />
 
-    {/* Step 1 — Drop zone */}
-    <Card className="border-2 border-dashed border-border hover:border-primary/40 transition-colors bg-transparent">
-      <div className="p-10 text-center space-y-4">
-        <div className="relative w-12 h-12 mx-auto">
-          <div className="absolute inset-0 border border-primary/25 rotate-45 scale-90" />
-          <div className="relative h-full flex items-center justify-center">
-            <Upload className="w-5 h-5 text-primary" />
+    {/* Hidden native file input */}
+    <input
+      ref={fileInputRef}
+      type="file"
+      accept=".pdf,.png,.jpg,.jpeg"
+      className="hidden"
+      onChange={handleInputChange}
+    />
+
+    {/* Drop zone */}
+    <Card
+      className={`border-2 border-dashed transition-colors bg-transparent ${
+        isDragging ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/40'
+      }`}
+      onDragOver={e => { e.preventDefault(); setIsDragging(true); }}
+      onDragLeave={() => setIsDragging(false)}
+      onDrop={handleDrop}
+    >
+      {uploadedFile ? (
+        <div className="p-6 flex items-center gap-4">
+          {/* Preview thumbnail or file icon */}
+          <div className="w-14 h-14 flex-shrink-0 rounded border border-border overflow-hidden bg-muted/30 flex items-center justify-center">
+            {uploadedFile.previewUrl ? (
+              <img src={uploadedFile.previewUrl} alt="preview" className="w-full h-full object-cover" />
+            ) : (
+              <FileText className="w-6 h-6 text-primary" />
+            )}
           </div>
-        </div>
-        <div>
-          <p className="font-display font-bold uppercase tracking-[0.2em] text-sm text-foreground">Drop Invoice Here</p>
-          <p className="text-xs text-muted-foreground mt-1">or click to browse · PDF · PNG · JPG · max 50 MB</p>
-        </div>
-        <Button className="bg-primary text-primary-foreground hover:bg-primary/85 font-display uppercase tracking-[0.15em] text-xs h-9">
-          Browse Files
-        </Button>
-      </div>
-    </Card>
-
-    {/* Step 2 — Sample documents */}
-    <Card className="p-5 border border-border bg-card">
-      <div className="flex items-center gap-2 mb-3">
-        <span className="w-5 h-5 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center flex-shrink-0">1</span>
-        <p className="text-xs font-semibold text-foreground">Select a Document</p>
-      </div>
-      <div className="grid grid-cols-3 gap-2.5">
-        {[
-          { key: 'sample-pdf.txt', fmt: 'PDF', file: 'sample-invoice.pdf', color: 'border-primary/40 hover:border-primary text-primary bg-primary/5 hover:bg-primary/10' },
-          { key: 'sample-png.png', fmt: 'PNG', file: 'sample-invoice.png', color: 'border-emerald-400/40 hover:border-emerald-400 text-emerald-400 bg-emerald-400/5 hover:bg-emerald-400/10' },
-          { key: 'sample-jpg.jpg', fmt: 'JPG', file: 'sample-invoice.jpg', color: 'border-accent/40 hover:border-accent text-accent bg-accent/5 hover:bg-accent/10' },
-        ].map(({ key, fmt, file, color }) => (
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-foreground truncate">{uploadedFile.name}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">{formatSize(uploadedFile.size)} · {uploadedFile.type.split('/')[1].toUpperCase()}</p>
+            <div className="flex items-center gap-1.5 mt-1.5">
+              <CheckCircle className="w-3.5 h-3.5 text-emerald-500" />
+              <span className="text-xs text-emerald-500 font-medium">File ready for processing</span>
+            </div>
+          </div>
           <button
-            key={key}
-            onClick={() => onSelectSample(key)}
-            className={`p-3 border-2 transition-all rounded text-left ${
-              selectedSample === key ? color.replace('hover:', '') : color
-            }`}
+            onClick={() => { onFileSelected({ file: null as unknown as File, name: '', size: 0, type: '', previewUrl: null, uploadId: null }); }}
+            className="p-1.5 hover:bg-muted rounded transition-colors flex-shrink-0"
           >
-            <FileText className="w-4 h-4 mb-2" />
-            <p className="text-[11px] font-display font-bold uppercase tracking-wider">{fmt} Format</p>
-            <p className="text-[9px] font-mono text-muted-foreground mt-0.5 truncate">{file}</p>
+            <X className="w-4 h-4 text-muted-foreground" />
           </button>
-        ))}
-      </div>
-      {selectedSample && (
-        <div className="mt-3 p-2.5 bg-emerald-400/10 border border-emerald-400/30 rounded flex items-center gap-2">
-          <CheckCircle className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
-          <span className="text-xs font-mono text-emerald-400">Selected: {selectedSample}</span>
+        </div>
+      ) : (
+        <div className="p-10 text-center space-y-4">
+          <div className="relative w-12 h-12 mx-auto">
+            <div className="absolute inset-0 border border-primary/25 rotate-45 scale-90" />
+            <div className="relative h-full flex items-center justify-center">
+              <Upload className="w-5 h-5 text-primary" />
+            </div>
+          </div>
+          <div>
+            <p className="font-display font-bold uppercase tracking-[0.2em] text-sm text-foreground">
+              {isDragging ? 'Release to Upload' : 'Drop Invoice Here'}
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">or click to browse · PDF · PNG · JPG · max {MAX_MB} MB</p>
+          </div>
+          <Button
+            onClick={() => fileInputRef.current?.click()}
+            className="bg-primary text-primary-foreground hover:bg-primary/85 font-display uppercase tracking-[0.15em] text-xs h-9"
+          >
+            Browse Files
+          </Button>
         </div>
       )}
     </Card>
 
-    {/* Step 3 — Voucher type (shown once file selected) */}
-    {selectedSample && (
+    {/* Size / type error */}
+    {sizeError && (
+      <div className="flex items-center gap-2 p-3 bg-destructive/10 border border-destructive/30 rounded">
+        <AlertCircle className="w-4 h-4 text-destructive flex-shrink-0" />
+        <span className="text-xs text-destructive">{sizeError}</span>
+      </div>
+    )}
+
+    {/* Step 2 — Voucher type (shown once file is selected) */}
+    {uploadedFile?.name && (
       <Card className="p-5 border border-border bg-card">
         <div className="flex items-center gap-2 mb-3">
           <span className="w-5 h-5 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center flex-shrink-0">2</span>
@@ -462,11 +541,11 @@ const UploadScreen = ({ onNavigate, selectedSample, onSelectSample }: {
       </Card>
     )}
 
-    {/* Step 4 — Proceed button */}
-    {selectedSample && (
+    {/* Step 3 — Proceed button */}
+    {uploadedFile?.name && (
       <div className="flex items-center gap-3 pt-1">
         <Button
-          onClick={() => onNavigate('processing')}
+          onClick={handleStart}
           disabled={!canProceed}
           className={`flex-1 h-11 text-sm font-display uppercase tracking-[0.18em] transition-all ${
             canProceed
@@ -504,11 +583,40 @@ const UploadScreen = ({ onNavigate, selectedSample, onSelectSample }: {
 };
 
 // ==================== PROCESSING ====================
-const ProcessingScreen = ({ onNavigate }: { onNavigate: (s: ScreenType) => void }) => {
-  const completed = processingStages.filter(s => s.status === 'complete').length;
-  const total = processingStages.length;
-  const progressPct = Math.round((completed / total) * 100);
-  const currentStage = processingStages.find(s => s.status === 'processing');
+const ProcessingScreen = ({ onNavigate, uploadedFile }: {
+  onNavigate: (s: ScreenType) => void;
+  uploadedFile: UploadedFile | null;
+}) => {
+  const stageNames = [
+    'Document Analysis', 'Text Extraction', 'Data Validation',
+    'Field Recognition', 'Tax Calculation', 'Account Mapping',
+    'Risk Assessment', 'Quality Check',
+  ];
+
+  const [stages, setStages] = useState<ProcessingStage[]>(
+    stageNames.map(name => ({ name, status: 'pending' as const }))
+  );
+  const [done, setDone] = useState(false);
+
+  useEffect(() => {
+    let current = 0;
+    const tick = () => {
+      if (current >= stageNames.length) { setDone(true); return; }
+      setStages(prev => prev.map((s, i) => {
+        if (i < current) return { ...s, status: 'complete', timestamp: new Date().toLocaleTimeString('en-IN', { hour12: false }) };
+        if (i === current) return { ...s, status: 'processing' };
+        return s;
+      }));
+      current++;
+      setTimeout(tick, 600);
+    };
+    tick();
+  }, []);
+
+  const completed = stages.filter(s => s.status === 'complete').length;
+  const total = stages.length;
+  const progressPct = done ? 100 : Math.round((completed / total) * 100);
+  const currentStage = stages.find(s => s.status === 'processing');
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
@@ -565,9 +673,20 @@ const ProcessingScreen = ({ onNavigate }: { onNavigate: (s: ScreenType) => void 
         </div>
       </Card>
 
+      {/* File being processed */}
+      {uploadedFile?.name && (
+        <div className="flex items-center gap-3 px-4 py-2.5 bg-muted/30 border border-border rounded-md">
+          <FileText className="w-4 h-4 text-primary flex-shrink-0" />
+          <span className="text-xs text-foreground font-medium truncate">{uploadedFile.name}</span>
+          <span className="ml-auto text-[10px] text-muted-foreground font-mono flex-shrink-0">
+            {(uploadedFile.size / 1024).toFixed(0)} KB
+          </span>
+        </div>
+      )}
+
       {/* Stage list */}
       <Card className="border border-border bg-card divide-y divide-border overflow-hidden">
-        {processingStages.map((stage, idx) => (
+        {stages.map((stage, idx) => (
           <div key={idx} className={`flex items-center gap-4 px-5 py-3.5 transition-colors ${
             stage.status === 'processing' ? 'bg-primary/5' :
             stage.status === 'complete' ? '' : 'opacity-50'
@@ -617,26 +736,32 @@ const ProcessingScreen = ({ onNavigate }: { onNavigate: (s: ScreenType) => void 
         ))}
       </Card>
 
-      {/* CTA */}
-      <div className="flex justify-center">
-        <Button
-          onClick={() => onNavigate('preview')}
-          className="bg-primary text-primary-foreground hover:bg-primary/90 font-display uppercase tracking-[0.18em] text-xs h-10 px-10"
-        >
-          Continue to Preview
-          <ChevronRight className="w-4 h-4 ml-2" />
-        </Button>
-      </div>
+      {/* CTA — only appears when all stages complete */}
+      {done && (
+        <div className="flex justify-center">
+          <Button
+            onClick={() => onNavigate('preview')}
+            className="bg-primary text-primary-foreground hover:bg-primary/90 font-display uppercase tracking-[0.18em] text-xs h-10 px-10"
+          >
+            Continue to Preview
+            <ChevronRight className="w-4 h-4 ml-2" />
+          </Button>
+        </div>
+      )}
 
     </div>
   );
 };
 
 // ==================== PREVIEW ====================
-const PreviewScreen = ({ onNavigate }: { onNavigate: (s: ScreenType) => void }) => {
+const PreviewScreen = ({ onNavigate, uploadedFile }: {
+  onNavigate: (s: ScreenType) => void;
+  uploadedFile: UploadedFile | null;
+}) => {
   const [editedData, setEditedData] = useState<VoucherData>(dummyVoucherData);
   const [voucherType, setVoucherType] = useState('purchase');
   const [reviewNote, setReviewNote] = useState('ABC Manufacturing Ltd. - Purchase Invoice');
+  const displayName = uploadedFile?.name || 'invoice-2024-001.pdf';
 
   const ledgerEntries = [
     { ledger: 'Purchases A/c', debit: '45000', credit: '' },
@@ -658,7 +783,7 @@ const PreviewScreen = ({ onNavigate }: { onNavigate: (s: ScreenType) => void }) 
           </button>
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-sm font-semibold text-foreground">invoice-2024-001.pdf</span>
+              <span className="text-sm font-semibold text-foreground truncate max-w-[200px]">{displayName}</span>
               <span className="text-[10px] px-2 py-0.5 bg-primary/10 text-primary border border-primary/30 rounded font-display uppercase tracking-wider">Invoice</span>
             </div>
             <p className="text-[11px] text-muted-foreground mt-0.5">Review and approve extracted data</p>
@@ -683,48 +808,58 @@ const PreviewScreen = ({ onNavigate }: { onNavigate: (s: ScreenType) => void }) 
             <span className="text-xs font-semibold text-foreground">Original Document</span>
           </div>
           <div className="flex-1 min-h-0 bg-[#3c3c3c] overflow-y-auto flex flex-col items-center justify-start pt-4 pb-4 px-4">
-            <div className="bg-white shadow-xl w-full p-5 space-y-3">
-              <div className="border-b border-gray-200 pb-3">
-                <p className="text-[9px] text-gray-400 uppercase tracking-widest">ABC Manufacturing Ltd.</p>
-                <p className="text-xl font-bold text-gray-900 mt-1">INVOICE</p>
-              </div>
-              <div className="space-y-1.5 text-xs">
-                {[
-                  ['Invoice No', 'INV-2024-5482'],
-                  ['Date', '15-05-2024'],
-                  ['GSTIN', '27AAJCA1234B1Z5'],
-                ].map(([l, v]) => (
-                  <div key={l} className="flex justify-between">
-                    <span className="text-gray-500">{l}:</span>
-                    <span className="text-gray-800 font-medium text-right">{v}</span>
+            {uploadedFile?.previewUrl ? (
+              /* Real image preview */
+              <img
+                src={uploadedFile.previewUrl}
+                alt="Uploaded document"
+                className="w-full shadow-xl object-contain"
+              />
+            ) : (
+              /* Simulated invoice preview for PDF / no-file fallback */
+              <div className="bg-white shadow-xl w-full p-5 space-y-3">
+                <div className="border-b border-gray-200 pb-3">
+                  <p className="text-[9px] text-gray-400 uppercase tracking-widest">ABC Manufacturing Ltd.</p>
+                  <p className="text-xl font-bold text-gray-900 mt-1">INVOICE</p>
+                </div>
+                <div className="space-y-1.5 text-xs">
+                  {[
+                    ['Invoice No', editedData.invoiceNo],
+                    ['Date', editedData.date],
+                    ['GSTIN', '27AAJCA1234B1Z5'],
+                  ].map(([l, v]) => (
+                    <div key={l} className="flex justify-between">
+                      <span className="text-gray-500">{l}:</span>
+                      <span className="text-gray-800 font-medium text-right">{v}</span>
+                    </div>
+                  ))}
+                </div>
+                <div className="border-t border-gray-100 pt-2 space-y-1 text-[11px]">
+                  {[
+                    ['Industrial Motor 5HP', '2', '₹25,000'],
+                    ['Control Panel Assembly', '1', '₹8,500'],
+                    ['Copper Wire Coil', '5 Kg', '₹2,250'],
+                  ].map(([name, qty, amt]) => (
+                    <div key={name} className="flex justify-between gap-1">
+                      <span className="text-gray-600 truncate flex-1">{name}</span>
+                      <span className="text-gray-500 text-center w-8">{qty}</span>
+                      <span className="text-gray-800 font-medium text-right">{amt}</span>
+                    </div>
+                  ))}
+                </div>
+                <div className="border-t border-gray-200 pt-2 space-y-1 text-xs">
+                  {[['Subtotal', `₹${editedData.amount.toLocaleString()}`], ['CGST (9%)', `₹${editedData.cgst.toLocaleString()}`], ['SGST (9%)', `₹${editedData.sgst.toLocaleString()}`]].map(([l, v]) => (
+                    <div key={l} className="flex justify-between text-gray-500">
+                      <span>{l}</span><span>{v}</span>
+                    </div>
+                  ))}
+                  <div className="flex justify-between font-bold text-sm pt-1 border-t border-gray-200">
+                    <span className="text-gray-900">Total</span>
+                    <span className="text-orange-600">₹{editedData.totalAmount.toLocaleString()}</span>
                   </div>
-                ))}
-              </div>
-              <div className="border-t border-gray-100 pt-2 space-y-1 text-[11px]">
-                {[
-                  ['Industrial Motor 5HP', '2', '₹25,000'],
-                  ['Control Panel Assembly', '1', '₹8,500'],
-                  ['Copper Wire Coil', '5 Kg', '₹2,250'],
-                ].map(([name, qty, amt]) => (
-                  <div key={name} className="flex justify-between gap-1">
-                    <span className="text-gray-600 truncate flex-1">{name}</span>
-                    <span className="text-gray-500 text-center w-8">{qty}</span>
-                    <span className="text-gray-800 font-medium text-right">{amt}</span>
-                  </div>
-                ))}
-              </div>
-              <div className="border-t border-gray-200 pt-2 space-y-1 text-xs">
-                {[['Subtotal', '₹35,750'], ['CGST (9%)', '₹4,050'], ['SGST (9%)', '₹4,050']].map(([l, v]) => (
-                  <div key={l} className="flex justify-between text-gray-500">
-                    <span>{l}</span><span>{v}</span>
-                  </div>
-                ))}
-                <div className="flex justify-between font-bold text-sm pt-1 border-t border-gray-200">
-                  <span className="text-gray-900">Total</span>
-                  <span className="text-orange-600">₹53,100</span>
                 </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
 
@@ -1350,7 +1485,20 @@ const ApprovalScreen = ({ onNavigate }: { onNavigate: (s: ScreenType) => void })
 );
 
 // ==================== FINAL REVIEW ====================
-const FinalReviewScreen = ({ onNavigate }: { onNavigate: (s: ScreenType) => void }) => (
+const FinalReviewScreen = ({ onNavigate, onPostToERP, uploadedFile }: {
+  onNavigate: (s: ScreenType) => void;
+  onPostToERP: () => void;
+  uploadedFile: UploadedFile | null;
+}) => {
+  const [posting, setPosting] = useState(false);
+  const postedAt = new Date().toLocaleString('en-IN');
+
+  const handlePost = async () => {
+    setPosting(true);
+    await onPostToERP();
+  };
+
+  return (
   <div className="space-y-5">
     <SectionHeader label="Final Voucher Review" sub="Comprehensive summary before posting" />
 
@@ -1361,6 +1509,7 @@ const FinalReviewScreen = ({ onNavigate }: { onNavigate: (s: ScreenType) => void
         </div>
         <div className="p-5 space-y-2.5">
           {[
+            ['File', uploadedFile?.name || 'invoice-2024-001.pdf', false],
             ['Voucher Number', 'VCH-2024-001', true],
             ['Invoice Number', 'INV-2024-5482', true],
             ['Date', '2024-05-15', true],
@@ -1368,7 +1517,7 @@ const FinalReviewScreen = ({ onNavigate }: { onNavigate: (s: ScreenType) => void
           ].map(([label, value, mono]) => (
             <div key={String(label)} className="flex items-center justify-between py-1.5 border-b border-border/30 last:border-b-0">
               <span className="text-xs text-muted-foreground">{String(label)}</span>
-              <span className={`text-xs font-medium text-foreground ${mono ? 'font-mono' : ''}`}>{String(value)}</span>
+              <span className={`text-xs font-medium text-foreground truncate max-w-[55%] text-right ${mono ? 'font-mono' : ''}`}>{String(value)}</span>
             </div>
           ))}
         </div>
@@ -1437,16 +1586,35 @@ const FinalReviewScreen = ({ onNavigate }: { onNavigate: (s: ScreenType) => void
     </div>
 
     <div className="flex gap-2.5">
-      <Button onClick={() => onNavigate('approval')} variant="outline" className="h-9 text-xs font-display uppercase tracking-[0.15em] border-border">Back</Button>
-      <Button onClick={() => onNavigate('success')} className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white h-9 text-xs font-display uppercase tracking-[0.15em]">
-        Post to ERP<ChevronRight className="w-3.5 h-3.5 ml-2" />
+      <Button onClick={() => onNavigate('approval')} variant="outline" className="h-9 text-xs font-display uppercase tracking-[0.15em] border-border" disabled={posting}>Back</Button>
+      <Button
+        onClick={handlePost}
+        disabled={posting}
+        className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white h-9 text-xs font-display uppercase tracking-[0.15em]"
+      >
+        {posting ? (
+          <><Loader className="w-3.5 h-3.5 mr-2 animate-spin" /> Posting…</>
+        ) : (
+          <>Post to ERP<ChevronRight className="w-3.5 h-3.5 ml-2" /></>
+        )}
       </Button>
     </div>
   </div>
-);
+  );
+};
 
 // ==================== SUCCESS ====================
-const SuccessScreen = ({ onNavigate }: { onNavigate: (s: ScreenType) => void }) => (
+const SuccessScreen = ({ onNavigate, uploadedFile }: {
+  onNavigate: (s: ScreenType) => void;
+  uploadedFile: UploadedFile | null;
+}) => {
+  const postedAt = new Date().toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' });
+
+  const handleCopyId = () => {
+    navigator.clipboard.writeText('VCH-2024-001').catch(() => {});
+  };
+
+  return (
   <div className="max-w-lg mx-auto">
     <Card className="p-10 border border-border bg-card text-center">
       {/* Animated ring */}
@@ -1463,13 +1631,14 @@ const SuccessScreen = ({ onNavigate }: { onNavigate: (s: ScreenType) => void }) 
       <div className="bg-muted/30 border border-border p-4 rounded mb-6 text-left space-y-2.5">
         <p className="text-[9px] font-display font-bold uppercase tracking-[0.22em] text-muted-foreground mb-3">Voucher Details</p>
         {[
+          { label: 'File', value: uploadedFile?.name || 'invoice-2024-001.pdf', mono: false },
           { label: 'Voucher Number', value: 'VCH-2024-001', mono: true },
           { label: 'Amount', value: '₹53,100', mono: true, highlight: true },
-          { label: 'Posted At', value: '2024-05-26 · 10:22:18', mono: true },
+          { label: 'Posted At', value: postedAt, mono: true },
         ].map(({ label, value, mono, highlight }) => (
           <div key={label} className="flex justify-between items-center py-1.5 border-b border-border/30 last:border-0">
-            <span className="text-xs text-muted-foreground">{label}</span>
-            <span className={`text-xs font-medium ${mono ? 'font-mono' : ''} ${highlight ? 'text-accent text-base font-bold' : 'text-foreground'}`}>{value}</span>
+            <span className="text-xs text-muted-foreground flex-shrink-0">{label}</span>
+            <span className={`text-xs font-medium truncate ml-3 text-right ${mono ? 'font-mono' : ''} ${highlight ? 'text-accent text-base font-bold' : 'text-foreground'}`}>{value}</span>
           </div>
         ))}
       </div>
@@ -1485,10 +1654,10 @@ const SuccessScreen = ({ onNavigate }: { onNavigate: (s: ScreenType) => void }) 
 
       <div className="grid grid-cols-2 gap-2 pt-4 border-t border-border">
         {[
-          { icon: Download, label: 'Download PDF' },
-          { icon: Copy, label: 'Copy Voucher ID' },
-        ].map(({ icon: Icon, label }) => (
-          <button key={label} className="flex items-center justify-center gap-2 p-2.5 hover:bg-muted/40 rounded transition-colors">
+          { icon: Download, label: 'Download PDF', action: () => {} },
+          { icon: Copy, label: 'Copy Voucher ID', action: handleCopyId },
+        ].map(({ icon: Icon, label, action }) => (
+          <button key={label} onClick={action} className="flex items-center justify-center gap-2 p-2.5 hover:bg-muted/40 rounded transition-colors">
             <Icon className="w-4 h-4 text-primary" />
             <span className="text-xs font-medium text-muted-foreground hover:text-foreground transition-colors">{label}</span>
           </button>
@@ -1496,31 +1665,101 @@ const SuccessScreen = ({ onNavigate }: { onNavigate: (s: ScreenType) => void }) 
       </div>
     </Card>
   </div>
-);
+  );
+};
 
 // ==================== MAIN APP ====================
 export default function ERPOCRApp() {
   const [currentScreen, setCurrentScreen] = useState<ScreenType>('home');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
-  const [selectedSample, setSelectedSample] = useState<string | null>(null);
 
-  const [uploadHistory] = useState<UploadHistory[]>([
-    { id: '1', fileName: 'invoice-2024-001.pdf', uploadDate: '2024-05-26 10:15 AM', invoiceNo: 'INV-2024-5482', amount: 53100, status: 'posted', voucherNo: 'VCH-2024-001' },
-    { id: '2', fileName: 'invoice-2024-002.png', uploadDate: '2024-05-25 02:45 PM', invoiceNo: 'INV-2024-5481', amount: 28500, status: 'processed', voucherNo: 'VCH-2024-002' },
-    { id: '3', fileName: 'purchase-bill-5.jpg', uploadDate: '2024-05-24 11:20 AM', invoiceNo: 'PB-2024-0015', amount: 12500, status: 'processed', voucherNo: 'VCH-2024-003' },
-    { id: '4', fileName: 'invoice-2024-003.pdf', uploadDate: '2024-05-23 03:30 PM', invoiceNo: 'INV-2024-5480', amount: 67800, status: 'pending' },
-  ]);
+  // Uploaded file state — carried through the whole workflow
+  const [uploadedFile, setUploadedFile] = useState<UploadedFile | null>(null);
+  const [activeVoucherType, setActiveVoucherType] = useState<string>('purchase');
 
-  const [addedLedgerEntries] = useState([
-    { id: '1', account: 'Purchases A/c', debit: '45000', credit: '0', voucherNo: 'VCH-2024-001', date: '2024-05-26' },
-    { id: '2', account: 'CGST Input Credit', debit: '4050', credit: '0', voucherNo: 'VCH-2024-001', date: '2024-05-26' },
-    { id: '3', account: 'SGST Input Credit', debit: '4050', credit: '0', voucherNo: 'VCH-2024-001', date: '2024-05-26' },
-    { id: '4', account: 'Creditors A/c', debit: '0', credit: '53100', voucherNo: 'VCH-2024-001', date: '2024-05-26' },
-    { id: '5', account: 'Sales A/c', debit: '0', credit: '28500', voucherNo: 'VCH-2024-002', date: '2024-05-25' },
-  ]);
+  // Live data from DB
+  const [uploadHistory, setUploadHistory] = useState<UploadHistory[]>([]);
+  const [addedLedgerEntries, setAddedLedgerEntries] = useState<Array<{
+    id: string; account: string; debit: string; credit: string; voucherNo: string; date: string;
+  }>>([]);
 
-  React.useEffect(() => {
+  // Fetch uploads and ledger entries from DB on mount and after success
+  const refreshData = useCallback(async () => {
+    try {
+      const [uploadsRes, ledgerRes] = await Promise.all([
+        fetch('/api/db/uploads'),
+        fetch('/api/db/ledgerEntries'),
+      ]);
+      if (uploadsRes.ok) setUploadHistory(await uploadsRes.json());
+      if (ledgerRes.ok) setAddedLedgerEntries(await ledgerRes.json());
+    } catch { /* network errors silently ignored */ }
+  }, []);
+
+  useEffect(() => { refreshData(); }, [refreshData]);
+
+  // Handle file selected in Upload screen
+  const handleFileSelected = useCallback((f: UploadedFile) => {
+    setUploadedFile(f.name ? f : null);
+  }, []);
+
+  // Called when user clicks "Start Processing" — save to DB
+  const handleStartProcessing = useCallback(async (voucherType: string) => {
+    setActiveVoucherType(voucherType);
+    if (!uploadedFile?.name) return;
+    try {
+      const now = new Date();
+      const uploadDate = now.toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' })
+        + ' ' + now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
+      const res = await fetch('/api/db/uploads', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fileName: uploadedFile.name,
+          uploadDate,
+          invoiceNo: 'PENDING',
+          amount: 0,
+          status: 'pending',
+          voucherNo: null,
+          voucherType,
+          party: '',
+          cgst: 0, sgst: 0, igst: 0, subtotal: 0,
+        }),
+      });
+      if (res.ok) {
+        const saved = await res.json();
+        setUploadedFile(prev => prev ? { ...prev, uploadId: saved.id } : prev);
+      }
+    } catch { /* continue to processing screen regardless */ }
+  }, [uploadedFile]);
+
+  // Called after "Post to ERP" on FinalReviewScreen
+  const handlePostToERP = useCallback(async () => {
+    if (uploadedFile?.uploadId) {
+      try {
+        await fetch(`/api/db/uploads/${uploadedFile.uploadId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: 'posted', invoiceNo: 'INV-2024-5482', amount: 53100, voucherNo: 'VCH-2024-001' }),
+        });
+        await fetch('/api/db/auditLog', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            uploadId: uploadedFile.uploadId,
+            voucherNo: 'VCH-2024-001',
+            action: 'Posted to ERP',
+            timestamp: new Date().toLocaleString('en-IN'),
+            by: 'Admin',
+          }),
+        });
+        await refreshData();
+      } catch { /* ignore */ }
+    }
+    setCurrentScreen('success');
+  }, [uploadedFile, refreshData]);
+
+  useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768);
     check();
     window.addEventListener('resize', check);
@@ -1529,15 +1768,15 @@ export default function ERPOCRApp() {
 
   const screens: Record<ScreenType, React.ReactNode> = {
     home: <HomeScreen onNavigate={setCurrentScreen} uploadHistory={uploadHistory} addedLedgerEntries={addedLedgerEntries} />,
-    upload: <UploadScreen onNavigate={setCurrentScreen} selectedSample={selectedSample} onSelectSample={setSelectedSample} />,
-    processing: <ProcessingScreen onNavigate={setCurrentScreen} />,
-    preview: <PreviewScreen onNavigate={setCurrentScreen} />,
+    upload: <UploadScreen onNavigate={setCurrentScreen} uploadedFile={uploadedFile} onFileSelected={handleFileSelected} onStartProcessing={handleStartProcessing} />,
+    processing: <ProcessingScreen onNavigate={setCurrentScreen} uploadedFile={uploadedFile} />,
+    preview: <PreviewScreen onNavigate={setCurrentScreen} uploadedFile={uploadedFile} />,
     stock: <StockScreen onNavigate={setCurrentScreen} />,
     ledger: <LedgerScreen onNavigate={setCurrentScreen} />,
     tax: <TaxScreen onNavigate={setCurrentScreen} />,
     approval: <ApprovalScreen onNavigate={setCurrentScreen} />,
-    'final-review': <FinalReviewScreen onNavigate={setCurrentScreen} />,
-    success: <SuccessScreen onNavigate={setCurrentScreen} />,
+    'final-review': <FinalReviewScreen onNavigate={setCurrentScreen} onPostToERP={handlePostToERP} uploadedFile={uploadedFile} />,
+    success: <SuccessScreen onNavigate={(s) => { if (s === 'upload') setUploadedFile(null); setCurrentScreen(s); }} uploadedFile={uploadedFile} />,
   };
 
   return (

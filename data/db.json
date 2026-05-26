@@ -59,6 +59,21 @@
       "sgst": 3054,
       "igst": 0,
       "subtotal": 61692
+    },
+    {
+      "fileName": "sample_bank_statement.pdf",
+      "uploadDate": "26/05/2026 02:57 pm",
+      "invoiceNo": "INV-2024-5482",
+      "amount": 53100,
+      "status": "posted",
+      "voucherNo": "VCH-2024-001",
+      "voucherType": "purchase",
+      "party": "",
+      "cgst": 0,
+      "sgst": 0,
+      "igst": 0,
+      "subtotal": 0,
+      "id": "5"
     }
   ],
   "vouchers": [
@@ -211,9 +226,24 @@
       "igstRate": 0,
       "validated": true,
       "hsnBreakdown": [
-        { "hsn": "8501.40", "desc": "Electrical Motors", "amount": 25000, "gst": "18% GST" },
-        { "hsn": "8535.30", "desc": "Control Panels", "amount": 8500, "gst": "18% GST" },
-        { "hsn": "7408.11", "desc": "Copper Wire", "amount": 2250, "gst": "5% GST" }
+        {
+          "hsn": "8501.40",
+          "desc": "Electrical Motors",
+          "amount": 25000,
+          "gst": "18% GST"
+        },
+        {
+          "hsn": "8535.30",
+          "desc": "Control Panels",
+          "amount": 8500,
+          "gst": "18% GST"
+        },
+        {
+          "hsn": "7408.11",
+          "desc": "Copper Wire",
+          "amount": 2250,
+          "gst": "5% GST"
+        }
       ]
     }
   ],
@@ -249,14 +279,22 @@
       "action": "Posted to ERP",
       "timestamp": "2024-05-26 10:22:18",
       "by": "Admin"
+    },
+    {
+      "uploadId": "5",
+      "voucherNo": "VCH-2024-001",
+      "action": "Posted to ERP",
+      "timestamp": "26/5/2026, 2:57:36 pm",
+      "by": "Admin",
+      "id": "5"
     }
   ],
   "_meta": {
     "lastVoucherSeq": 3,
-    "lastUploadSeq": 4,
+    "lastUploadSeq": 5,
     "lastLedgerSeq": 5,
     "lastStockSeq": 3,
     "lastTaxSeq": 1,
-    "lastAuditSeq": 4
+    "lastAuditSeq": 5
   }
 }
