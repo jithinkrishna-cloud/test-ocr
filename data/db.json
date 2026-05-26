@@ -1,0 +1,262 @@
+{
+  "uploads": [
+    {
+      "id": "1",
+      "fileName": "invoice-2024-001.pdf",
+      "uploadDate": "2024-05-26 10:15 AM",
+      "invoiceNo": "INV-2024-5482",
+      "amount": 53100,
+      "status": "posted",
+      "voucherNo": "VCH-2024-001",
+      "voucherType": "purchase",
+      "party": "ABC Manufacturing Ltd.",
+      "cgst": 4050,
+      "sgst": 4050,
+      "igst": 0,
+      "subtotal": 45000
+    },
+    {
+      "id": "2",
+      "fileName": "invoice-2024-002.png",
+      "uploadDate": "2024-05-25 02:45 PM",
+      "invoiceNo": "INV-2024-5481",
+      "amount": 28500,
+      "status": "processed",
+      "voucherNo": "VCH-2024-002",
+      "voucherType": "sales",
+      "party": "XYZ Traders",
+      "cgst": 1286,
+      "sgst": 1286,
+      "igst": 0,
+      "subtotal": 25928
+    },
+    {
+      "id": "3",
+      "fileName": "purchase-bill-5.jpg",
+      "uploadDate": "2024-05-24 11:20 AM",
+      "invoiceNo": "PB-2024-0015",
+      "amount": 12500,
+      "status": "processed",
+      "voucherNo": "VCH-2024-003",
+      "voucherType": "purchase",
+      "party": "Global Supplies Co.",
+      "cgst": 563,
+      "sgst": 563,
+      "igst": 0,
+      "subtotal": 11374
+    },
+    {
+      "id": "4",
+      "fileName": "invoice-2024-003.pdf",
+      "uploadDate": "2024-05-23 03:30 PM",
+      "invoiceNo": "INV-2024-5480",
+      "amount": 67800,
+      "status": "pending",
+      "voucherNo": null,
+      "voucherType": "purchase",
+      "party": "Industrial Parts Ltd.",
+      "cgst": 3054,
+      "sgst": 3054,
+      "igst": 0,
+      "subtotal": 61692
+    }
+  ],
+  "vouchers": [
+    {
+      "id": "VCH-2024-001",
+      "voucherNo": "VCH-2024-001",
+      "invoiceNo": "INV-2024-5482",
+      "date": "2024-05-26",
+      "party": "ABC Manufacturing Ltd.",
+      "amount": 45000,
+      "cgst": 4050,
+      "sgst": 4050,
+      "igst": 0,
+      "totalAmount": 53100,
+      "voucherType": "purchase",
+      "status": "posted",
+      "reviewNote": "ABC Manufacturing Ltd. - Purchase Invoice",
+      "postedAt": "2024-05-26 10:22:18",
+      "uploadId": "1"
+    },
+    {
+      "id": "VCH-2024-002",
+      "voucherNo": "VCH-2024-002",
+      "invoiceNo": "INV-2024-5481",
+      "date": "2024-05-25",
+      "party": "XYZ Traders",
+      "amount": 25928,
+      "cgst": 1286,
+      "sgst": 1286,
+      "igst": 0,
+      "totalAmount": 28500,
+      "voucherType": "sales",
+      "status": "processed",
+      "reviewNote": "",
+      "postedAt": null,
+      "uploadId": "2"
+    }
+  ],
+  "stockItems": [
+    {
+      "id": "1",
+      "uploadId": "1",
+      "voucherNo": "VCH-2024-001",
+      "name": "Industrial Motor 5HP",
+      "sku": "MTR-001",
+      "hsn": "8501.40",
+      "qty": "2",
+      "unit": "Pcs",
+      "rate": "12500",
+      "tax": "18%",
+      "amount": "25000",
+      "confidence": 95
+    },
+    {
+      "id": "2",
+      "uploadId": "1",
+      "voucherNo": "VCH-2024-001",
+      "name": "Control Panel Assembly",
+      "sku": "CPL-045",
+      "hsn": "8535.30",
+      "qty": "1",
+      "unit": "Pcs",
+      "rate": "8500",
+      "tax": "18%",
+      "amount": "8500",
+      "confidence": 88
+    },
+    {
+      "id": "3",
+      "uploadId": "1",
+      "voucherNo": "VCH-2024-001",
+      "name": "Copper Wire Coil",
+      "sku": "CWC-102",
+      "hsn": "7408.11",
+      "qty": "5",
+      "unit": "Kg",
+      "rate": "450",
+      "tax": "5%",
+      "amount": "2250",
+      "confidence": 92
+    }
+  ],
+  "ledgerEntries": [
+    {
+      "id": "1",
+      "uploadId": "1",
+      "voucherNo": "VCH-2024-001",
+      "date": "2024-05-26",
+      "account": "Purchases A/c",
+      "group": "Purchases",
+      "debit": "45000",
+      "credit": "0",
+      "confidence": 98
+    },
+    {
+      "id": "2",
+      "uploadId": "1",
+      "voucherNo": "VCH-2024-001",
+      "date": "2024-05-26",
+      "account": "CGST Input Credit",
+      "group": "Tax",
+      "debit": "4050",
+      "credit": "0",
+      "confidence": 92
+    },
+    {
+      "id": "3",
+      "uploadId": "1",
+      "voucherNo": "VCH-2024-001",
+      "date": "2024-05-26",
+      "account": "SGST Input Credit",
+      "group": "Tax",
+      "debit": "4050",
+      "credit": "0",
+      "confidence": 92
+    },
+    {
+      "id": "4",
+      "uploadId": "1",
+      "voucherNo": "VCH-2024-001",
+      "date": "2024-05-26",
+      "account": "Creditors A/c",
+      "group": "Sundry Creditors",
+      "debit": "0",
+      "credit": "53100",
+      "confidence": 95
+    },
+    {
+      "id": "5",
+      "uploadId": "2",
+      "voucherNo": "VCH-2024-002",
+      "date": "2024-05-25",
+      "account": "Sales A/c",
+      "group": "Sales",
+      "debit": "0",
+      "credit": "28500",
+      "confidence": 96
+    }
+  ],
+  "taxRecords": [
+    {
+      "id": "1",
+      "uploadId": "1",
+      "voucherNo": "VCH-2024-001",
+      "cgst": 4050,
+      "sgst": 4050,
+      "igst": 0,
+      "cgstRate": 9,
+      "sgstRate": 9,
+      "igstRate": 0,
+      "validated": true,
+      "hsnBreakdown": [
+        { "hsn": "8501.40", "desc": "Electrical Motors", "amount": 25000, "gst": "18% GST" },
+        { "hsn": "8535.30", "desc": "Control Panels", "amount": 8500, "gst": "18% GST" },
+        { "hsn": "7408.11", "desc": "Copper Wire", "amount": 2250, "gst": "5% GST" }
+      ]
+    }
+  ],
+  "auditLog": [
+    {
+      "id": "1",
+      "uploadId": "1",
+      "voucherNo": "VCH-2024-001",
+      "action": "Document Extracted",
+      "timestamp": "2024-05-26 10:15:32",
+      "by": null
+    },
+    {
+      "id": "2",
+      "uploadId": "1",
+      "voucherNo": "VCH-2024-001",
+      "action": "Fields Validated",
+      "timestamp": "2024-05-26 10:16:15",
+      "by": null
+    },
+    {
+      "id": "3",
+      "uploadId": "1",
+      "voucherNo": "VCH-2024-001",
+      "action": "Manual Review",
+      "timestamp": "2024-05-26 10:17:45",
+      "by": "Admin"
+    },
+    {
+      "id": "4",
+      "uploadId": "1",
+      "voucherNo": "VCH-2024-001",
+      "action": "Posted to ERP",
+      "timestamp": "2024-05-26 10:22:18",
+      "by": "Admin"
+    }
+  ],
+  "_meta": {
+    "lastVoucherSeq": 3,
+    "lastUploadSeq": 4,
+    "lastLedgerSeq": 5,
+    "lastStockSeq": 3,
+    "lastTaxSeq": 1,
+    "lastAuditSeq": 4
+  }
+}
